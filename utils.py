@@ -25,8 +25,8 @@ def make_sim_matrix(embs):
     sim_matrix = np.maximum(sim_matrix, sim_matrix.T)
     return sim_matrix
 
-def get_clan_mapping(release=35):
-    clans = pd.read_csv(f"data/Pfam-A.clans.{release}.tsv", sep='\t', header=None, names=['acc', 'clan', 'clan_name', 'prot_name', 'prot_desc'])
+def get_clan_mapping(path="data/Pfam-A.clans.tsv"):
+    clans = pd.read_csv(path, sep='\t', header=None, names=['acc', 'clan', 'clan_name', 'prot_name', 'prot_desc'])
     clans['clan'].fillna('NOCLAN', inplace=True)
     clan_mapping = dict(zip(clans['acc'], clans['clan']))
     return clan_mapping
