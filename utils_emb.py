@@ -14,6 +14,7 @@ AMINO_ACID_VOCABULARY = [
 ]
 
 def residues_to_one_hot(amino_acid_residues):
+  ''' Returns one-hot encoding for the amino acid sequence '''
   to_return = []
   normalized_residues = amino_acid_residues.replace('U', 'C').replace('O', 'X')
   for char in normalized_residues:
@@ -42,6 +43,7 @@ def residues_to_one_hot(amino_acid_residues):
   
 
 def get_vocabs(release=32):
+  ''' Get vocabularies for index -> family and family -> index '''
   vocab_path = f'vocab_{release}.json'
   f = open(vocab_path, 'r')
   vocab = f.readline().strip('[]').split(', ')
@@ -52,6 +54,7 @@ def get_vocabs(release=32):
 
 
 def labels_to_preds(preds, vocab, TH=0.025, LTH=20, seq_len=None):
+  ''' Convert per-residue predictions to domain calls ''' 
   if seq_len is not None:
       preds = preds[:seq_len, :]
     
@@ -85,6 +88,7 @@ def make_storage():
 
 
 def get_signatures(saved_model):
+  ''' Get signatures for tensors that we need ''' 
   output_signature = saved_model.signature_def['representation']
   repr_tensor_name = output_signature.outputs['output'].name
   output_signature_1 = saved_model.signature_def['label']
@@ -96,6 +100,9 @@ def get_signatures(saved_model):
 
 
 def run_model(path, sequences_df, release=35, pr_th=0.025):
+  ''' Main function for running the model, returns dictionaries
+      with per-sequence averaged domain embeddings and
+      annotation for embeddings '''
   full_mean_embs, full_embs, repr_list, repr_annot_all, repr_annot_chosen, perseq_preds, seq_accs = make_storage()
   seq_annot = dict()
   
