@@ -85,7 +85,7 @@ def labels_to_preds(preds, vocab, TH=0.025, LTH=20, seq_len=None):
 
   Returns:
       defaultdict: A defaultdict where keys are family names (strings) and values are lists of tuples
-      where tuples contain (int, int) values of the start and the end of the predicted domain.
+        where tuples contain (int, int) values of the start and the end of the predicted domain.
   """ 
   if seq_len is not None:
       preds = preds[:seq_len, :]
@@ -183,3 +183,24 @@ def run_model(path, sequences_df, release=35, pr_th=0.025, l_th=20):
   return {'repr_list': repr_list,
           'repr_annot_all': repr_annot_all
          }
+
+
+def dump_results_split(results, VER, split_num, prefix='mean_embs'):
+    """
+    Saves the results from the model run to the specified path.
+
+    Args:
+        results (dict): A dictionary with run results for saving,
+          returned by run_model function.
+        VER (string): version of the experiment.
+        split_num (int): Number of the sequences data split.
+          Used when inference is done in splits on multiple nodes.
+        prefix (str): Root directory name for saving.
+    """
+    results_path = f'{prefix}/VER_{VER}_split_{split_num}'
+    os.mkdir(results_path)
+    
+    for result_key in results:
+        with open(f'{results_path}/{result_key}.pkl', 'wb') as f:
+            pickle.dump(results[result_key], f)
+      
