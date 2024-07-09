@@ -14,7 +14,16 @@ AMINO_ACID_VOCABULARY = [
 ]
 
 def residues_to_one_hot(amino_acid_residues):
-  ''' Returns one-hot encoding for the amino acid sequence '''
+  """
+  Returns one-hot encoding for the amino acid sequence.
+  
+  Args:
+      amino_acid_residues (str): Input sequence, containing characters from
+      AMINO_ACID_VOCABULARY
+
+  Returns:
+     np.array of shape (len(amino_acid_residues), len(AMINO_ACID_VOCABULARY)).
+  """
   to_return = []
   normalized_residues = amino_acid_residues.replace('U', 'C').replace('O', 'X')
   for char in normalized_residues:
@@ -43,7 +52,17 @@ def residues_to_one_hot(amino_acid_residues):
   
 
 def get_vocabs(release=32):
-  ''' Get vocabularies for index -> family and family -> index '''
+  """
+  Returns mappings for family accessions and family indices in prediction tensors.
+
+  Args:
+      release (int): Pfam release number.
+
+  Returns:
+      dict, dict: Two dictionaries with mappings:
+          - family index to family accession
+          - family accession to family index
+  """
   vocab_path = f'vocab_{release}.json'
   f = open(vocab_path, 'r')
   vocab = f.readline().strip('[]').split(', ')
@@ -54,7 +73,20 @@ def get_vocabs(release=32):
 
 
 def labels_to_preds(preds, vocab, TH=0.025, LTH=20, seq_len=None):
-  ''' Convert per-residue predictions to domain calls ''' 
+  """
+  Converts per-residue predictions to domain calls.
+
+  Args:
+      preds (tf.Tensor): Tensor with model predictions.
+      vocab (dict): Dictionary that maps family index to family accession (e.g. PF000001).
+      TH (float): Probability threshold for per-residue predictions.
+      LTH (int): Length threshold (minimal length) for domain calls.
+      seq_len (int):
+
+  Returns:
+      defaultdict: A defaultdict where keys are family names (strings) and values are lists of tuples
+      where tuples contain (int, int) values of the start and the end of the predicted domain.
+  """ 
   if seq_len is not None:
       preds = preds[:seq_len, :]
     
@@ -74,21 +106,18 @@ def labels_to_preds(preds, vocab, TH=0.025, LTH=20, seq_len=None):
         start, end = -1, -1
 
   return act_coords
-  
-
-def make_storage():
-    full_mean_embs = []
-    full_embs = dict()
-    repr_list = defaultdict(list)
-    repr_annot_all = defaultdict(list)
-    repr_annot_chosen = defaultdict(list)
-    perseq_preds = dict()
-    seq_accs = []
-    return full_mean_embs, full_embs, repr_list, repr_annot_all, repr_annot_chosen, perseq_preds, seq_accs
 
 
 def get_signatures(saved_model):
-  ''' Get signatures for tensors that we need ''' 
+  """
+  Gets signatures for tensors needed for prediction.
+
+  Args:
+      saved_model (str): Path to the model.
+      
+  Returns:
+      str, str, str, str: Names of the tensors.
+  """
   output_signature = saved_model.signature_def['representation']
   repr_tensor_name = output_signature.outputs['output'].name
   output_signature_1 = saved_model.signature_def['label']
@@ -99,11 +128,27 @@ def get_signatures(saved_model):
   return repr_tensor_name, labels_tensor_name, sequence_input_tensor_name, sequence_lengths_input_tensor_name
 
 
-def run_model(path, sequences_df, release=35, pr_th=0.025):
-  ''' Main function for running the model, returns dictionaries
-      with per-sequence averaged domain embeddings and
-      annotation for embeddings '''
-  full_mean_embs, full_embs, repr_list, repr_annot_all, repr_annot_chosen, perseq_preds, seq_accs = make_storage()
+def run_model(path, sequences_df, release=35, pr_th=0.025, l_th=20):
+  """
+  Main function for running the model.
+  
+  Args:
+      path (str): Path to the model.
+      sequences_df (pandas.DataFrame): Dataframe with sequences data.
+      release (int): Pfam database release.
+      pr_th (float): Probability threshold for positive per-residue prediction.
+      l_th (int): Length threshold for a single domain prediction.
+      
+  Returns:
+      dict: dictionary with predictions and their annotations, with keys:
+          - 'repr_list' (dict): A dictionary where keys are family accessions
+             and values are averaged embeddings for each domain prediction.
+          - 'repr_annot_all' (dict): A dictionary where keys are family accessions
+             and values are lists of tuples (str, int, int): sequence accession,
+             start and end of the domain calls.
+  """
+  repr_list = defaultdict(list)
+  repr_annot_all = defaultdict(list)
   seq_annot = dict()
   
   vocab, r_vocab = get_vocabs(release)
@@ -127,8 +172,7 @@ def run_model(path, sequences_df, release=35, pr_th=0.025):
         embs, labels = logits
         embs, labels = embs[0], labels[0]
 
-        act_coords = labels_to_preds(labels, vocab, TH=pr_th, LTH=20)
-        perseq_preds[seq_acc] = act_coords
+        act_coords = labels_to_preds(labels, vocab, TH=pr_th, LTH=l_th)
         
         for fam in act_coords:
             for domain in act_coords[fam]:
@@ -137,6 +181,5 @@ def run_model(path, sequences_df, release=35, pr_th=0.025):
                 repr_annot_all[fam].append((seq_acc, start, end))
             
   return {'repr_list': repr_list,
-          'repr_annot_all': repr_annot_all,
-          'perseq_preds': perseq_preds
+          'repr_annot_all': repr_annot_all
          }
